@@ -1,0 +1,5 @@
+data/
+server/out/
+tests/fixtures/
+tmp/
+*.tgz

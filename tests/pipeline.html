@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><title>pipeline</title>
+<script type="module">
+import * as faceapi from "../docs/vendor/face-api.esm.js";
+window.run = async () => {
+  await faceapi.tf.ready();
+  await faceapi.nets.tinyFaceDetector.loadFromUri("../docs/models");
+  await faceapi.nets.faceLandmark68Net.loadFromUri("../docs/models");
+  await faceapi.nets.faceRecognitionNet.loadFromUri("../docs/models");
+  const out = {backend: faceapi.tf.getBackend(), images: []};
+  for (const name of ["sample1.jpg", "sample6.jpg"]) {
+    const img = new Image(); img.src = "fixtures/" + name; await img.decode();
+    const dets = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({inputSize: 608, scoreThreshold: 0.4})).withFaceLandmarks().withFaceDescriptors();
+    out.images.push({name, faces: dets.map(d => ({box: [d.detection.box.x, d.detection.box.y, d.detection.box.width, d.detection.box.height].map(Math.round), desc: Array.from(d.descriptor)}))});
+  }
+  return out;
+};
+</script>

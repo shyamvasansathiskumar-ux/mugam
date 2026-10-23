@@ -13,4 +13,4 @@ python3 -m http.server 8791 --bind 127.0.0.1 --directory docs > /dev/null 2>&1 &
 PY=$!
 trap 'kill $PID $PY 2>/dev/null; rm -rf "$DATA"' EXIT
 sleep 1
-MUGAM_URL="http://localhost:$PORT" MUGAM_DEMO_URL="http://127.0.0.1:8791/" python3 tests/e2e.py
+MUGAM_URL="http://localhost:$PORT" MUGAM_DEMO_URL="http://127.0.0.1:8791/try.html" python3 tests/e2e.py

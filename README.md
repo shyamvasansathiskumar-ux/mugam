@@ -4,7 +4,7 @@
 
 Mugam is a face sign-in system for websites. It works with an ordinary webcam and needs no password. Its security model follows the same idea as Apple's Face ID: the face check runs on the person's own device, and all it does is unlock a key that never leaves that device.
 
-**Try the demo:** https://shyamvasansathiskumar-ux.github.io/mugam/
+**Site:** https://shyamvasansathiskumar-ux.github.io/mugam/ · **Try it:** https://shyamvasansathiskumar-ux.github.io/mugam/try.html
 On GitHub Pages there's no server, so a demo server runs inside your browser and follows the same protocol (it protects nothing from the person at the keyboard). Run the Java server for the real thing.
 
 ## How it works
@@ -50,14 +50,14 @@ bash scripts/e2e.sh             # real Chromium + the real server + a fake camer
 |---|---|---|
 | Java (`server/test`) | 46 | JSON parser limits (including malformed `\u` escapes); off-curve and private-key JWKs refused; replay, expiry, wrong origin (phishing), type confusion, username swap, someone else's key, a changed byte; failed sign-ins can't lock the owner out; wrong recovery codes lock recovery; a recovered device can't remove the owner's devices for 24 hours; a reused username can't see the old account's log; recovery codes single-use; sessions end when a device is removed; step-up for sensitive actions; the server stores no face data; the log has no usernames; an edited or truncated log file is detected; CSRF, path traversal, oversize bodies, security headers, HttpOnly cookie, rate limit |
 | Node (`tests/web.test.mjs`) | 13 | rotations are orthonormal and keep distances; cancelability; enrolment rejects swapped captures; yaw and blink maths; a still photo, a wrong turn, two faces and a jumping face all fail liveness |
-| Browser (`tests/e2e.py`) | 17 | runs under the strict CSP; the real model matches the same face through the rotation; WebCrypto signatures verify in Java; the private key can't be exported; **a still photo of the enrolled face can't sign in**; the session cookie is invisible to scripts; the demo server applies the same rules |
+| Browser (`tests/e2e.py`) | 20 | runs under the strict CSP; the real model matches the same face through the rotation; WebCrypto signatures verify in Java; the private key can't be exported; **a still photo of the enrolled face can't sign in**; the session cookie is invisible to scripts; the demo server applies the same rules; the landing page runs under the CSP and its own key signs and verifies |
 
 ## Layout
 
 ```
 server/src/mugam/   Server (HTTP, headers, CSRF, rate limits) · Auth (the protocol) · Store · Audit (hash chain) · Crypto · Json
 server/test/        TestRunner (no JUnit)
-docs/               the web app (also the GitHub Pages demo): app.js · face.js · liveness.js · template.js · vault.js · api.js · demo-server.js
+docs/               index.html (the project page, scene.js · landing.js) and try.html (the app: app.js · face.js · liveness.js · template.js · vault.js · api.js · demo-server.js)
 tests/              web.test.mjs (Node) · e2e.py (Playwright) · pipeline.html (model sanity check)
 ```
 

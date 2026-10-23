@@ -1,12 +1,14 @@
-/* Mugam · quiet, system-native, one thing on screen at a time. */
+/* Mugam · quiet, one thing on screen at a time, in the same sand and type as the rest of the site. */
+@font-face { font-family: "Geist"; src: url("geist.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Cormorant Garamond"; src: url("cormorant.woff2") format("woff2"); font-weight: 300 700; font-display: swap; }
 :root {
-  --bg: #f5f5f7;
-  --surface: #ffffff;
-  --ink: #1d1d1f;
-  --muted: #6e6e73;
+  --bg: #e8e1d3;
+  --surface: #f4efe6;
+  --ink: #15120e;
+  --muted: #6f675a;
   --line: rgba(0, 0, 0, .1);
   --field: #ffffff;
-  --btn: #1d1d1f;
+  --btn: #15120e;
   --btn-ink: #ffffff;
   --soft: rgba(0, 0, 0, .05);
   --ok: #1f9d55;
@@ -14,7 +16,8 @@
   --tick: rgba(0, 0, 0, .14);
   --focus: #0a66d6;
   --r: 14px;
-  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Noto Sans Tamil", Arial, sans-serif;
+  --font: "Geist", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Noto Sans Tamil", Arial, sans-serif;
+  --serif: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -52,7 +55,7 @@ main:has(.wide:not([hidden])) { max-width: 620px; }
 .screen { display: flex; flex-direction: column; gap: 18px; animation: in .35s ease both; }
 @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-h1 { font-size: clamp(30px, 7vw, 40px); line-height: 1.1; font-weight: 700; letter-spacing: -.03em; margin: 0; text-wrap: balance; }
+h1 { font: 400 clamp(36px, 8vw, 52px)/1.02 var(--serif); letter-spacing: -.02em; margin: 0; text-wrap: balance; }
 h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; }
 .lede { color: var(--muted); font-size: 19px; line-height: 1.42; margin: -4px 0 6px; text-wrap: pretty; }
 

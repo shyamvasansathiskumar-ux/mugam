@@ -2,170 +2,297 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Mugam</title>
-<meta name="description" content="Mugam (முகம், face): sign in with your face. Your face never leaves your device; it unlocks a key that only this device holds.">
-<meta name="color-scheme" content="light dark">
-<!-- The Java server sends a stricter CSP header; this copy protects the GitHub Pages demo. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mugam · sign in with your face, keep your face</title>
+<meta name="description" content="Mugam (முகம், Tamil for face) is a face sign-in for websites. The face check runs on your device and only unlocks a key that never leaves it. The server sees a signature, never a face.">
+<meta name="theme-color" content="#e8e1d3">
+<meta property="og:title" content="Mugam · sign in with your face, keep your face">
+<meta property="og:description" content="Face sign-in where the face never leaves the device. Java server, WebCrypto keys, liveness, cancelable templates. By Shyam Kumar.">
+<meta property="og:image" content="https://shyamvasansathiskumar-ux.github.io/mugam/og.png">
+<meta property="og:url" content="https://shyamvasansathiskumar-ux.github.io/mugam/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://shyamvasansathiskumar-ux.github.io/mugam/">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css">
-<script type="module" src="app.js"></script>
+<link rel="preload" href="cormorant.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="geist.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="site.css">
+<script src="boot.js"></script>
 </head>
 <body>
-<header class="bar">
-  <a class="brand" href="./" aria-label="Mugam home"><span class="mark" aria-hidden="true"></span>Mugam <span class="ta" lang="ta">முகம்</span></a>
-  <span class="mode" id="mode" hidden></span>
+<div class="loader" aria-hidden="true">
+  <div class="who"><span class="label bare">Mugam · முகம்</span><span class="label bare">Shyam Kumar</span></div>
+  <div class="mid"><div class="bar"><i></i></div><div class="meta"><span class="label bare">Loading</span><span class="label bare pct"><b>00</b>%</span></div></div>
+</div>
+<canvas id="world" aria-hidden="true"></canvas>
+<ol class="rail" aria-label="Chapters"></ol>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="dot"></span>Mugam <span class="tamil">முகம்</span></a>
+    <ul>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#liveness">Liveness</a></li>
+      <li><a href="#template">Template</a></li>
+      <li><a href="#proof">Proof</a></li>
+    </ul>
+    <a class="btn sm ghost" href="https://github.com/shyamvasansathiskumar-ux/mugam" target="_blank" rel="noopener">Source <span class="arr">↗</span></a>
+  </div>
 </header>
 
-<main id="app">
-  <!-- Sign in -->
-  <section class="screen" data-screen="home">
-    <h1>Sign in with your face.</h1>
-    <p class="lede">Your face never leaves this device. It unlocks a key that only this device holds.</p>
-    <form class="form" id="f-signin" novalidate>
-      <label class="field"><span>Username</span>
-        <input id="in-user" name="username" autocomplete="username webauthn" autocapitalize="none" spellcheck="false" required maxlength="32"></label>
-      <button class="btn primary" type="submit">Continue</button>
-    </form>
-    <p class="msg" id="home-msg" role="alert" hidden></p>
-    <div class="links">
-      <button class="link" type="button" data-go="create">Create an account</button>
-      <button class="link" type="button" data-go="recover">Use a recovery code</button>
-    </div>
-
-    <details class="how">
-      <summary>How Mugam keeps your face private</summary>
-      <ol>
-        <li><b>Your face stays here.</b> The camera picture is read in memory on this device and thrown away. Nothing is uploaded.</li>
-        <li><b>What is stored is not your face.</b> Mugam keeps a list of numbers, scrambled with a secret random rotation and encrypted with a key this browser won't let anyone export. Set up your face again and the old numbers become useless.</li>
-        <li><b>A live person, not a photo.</b> Each sign-in asks for two random movements, in an order nobody can predict.</li>
-        <li><b>The server only sees a signature.</b> Your face unlocks a private key on this device, which signs a one-time challenge. The server stores public keys only, so a stolen database signs nothing.</li>
-        <li><b>Every sign-in is on the record.</b> Your security log is a hash chain. Edit one line and the chain shows it.</li>
-      </ol>
-    </details>
-  </section>
-
-  <!-- Create account -->
-  <section class="screen" data-screen="create" hidden>
-    <h1>Create your account.</h1>
-    <p class="lede">No password. Your face, on this device.</p>
-    <form class="form" id="f-create" novalidate>
-      <label class="field"><span>Your name</span><input id="c-name" autocomplete="name" required maxlength="60"></label>
-      <label class="field"><span>Username</span><input id="c-user" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="32">
-        <small>3–32 characters: letters, numbers, dot, dash or underscore.</small></label>
-      <label class="field"><span>Name this device</span><input id="c-device" required maxlength="40"></label>
-      <button class="btn primary" type="submit">Continue</button>
-    </form>
-    <p class="msg" id="create-msg" role="alert" hidden></p>
-    <div class="links"><button class="link" type="button" data-go="home">I already have an account</button></div>
-  </section>
-
-  <!-- Notice and consent -->
-  <section class="screen" data-screen="notice" hidden>
-    <h1>Before we see your face.</h1>
-    <div class="notice">
-      <p><b>What Mugam uses:</b> your camera, only while the circle is on screen, to make a face template.</p>
-      <p><b>Where it goes:</b> nowhere. The template is encrypted and stays on this device. The server receives only a public key.</p>
-      <p><b>Why:</b> to sign you in. Nothing else, no ads, no sharing.</p>
-      <p><b>How to stop:</b> in your account, choose "Remove face data from this device" or "Delete account". Either one erases it.</p>
-      <p><b>No face?</b> Every account gets recovery codes, so you're never locked out.</p>
-    </div>
-    <label class="check"><input type="checkbox" id="consent"> I understand and agree to set up face sign-in.</label>
-    <button class="btn primary" id="btn-consent" type="button" disabled>Set up face sign-in</button>
-    <div class="links"><button class="link" type="button" data-go="home">Not now</button></div>
-  </section>
-
-  <!-- Camera -->
-  <section class="screen scan" data-screen="scan" hidden>
-    <h1 id="scan-title">Face sign-in</h1>
-    <div class="viewport">
-      <video id="video" playsinline muted aria-hidden="true"></video>
-      <svg class="ring" id="ring" viewBox="0 0 300 300" aria-hidden="true"></svg>
-      <div class="veil" id="veil"><span class="spinner"></span></div>
-    </div>
-    <p class="status" id="status" aria-live="polite">Getting ready…</p>
-    <p class="hint" id="hint">Hold your device at arm's length, in good light.</p>
-    <button class="btn quiet" type="button" id="btn-cancel">Cancel</button>
-    <canvas id="probe" hidden></canvas>
-  </section>
-
-  <!-- Recovery codes -->
-  <section class="screen" data-screen="codes" hidden>
-    <h1>Save your recovery codes.</h1>
-    <p class="lede">If you lose this device, each code lets you set up face sign-in on a new one, once. This is the only time they're shown.</p>
-    <ol class="codes" id="codes"></ol>
-    <div class="row">
-      <button class="btn" type="button" id="btn-copy">Copy</button>
-      <button class="btn" type="button" id="btn-download">Download</button>
-    </div>
-    <label class="check"><input type="checkbox" id="saved"> I've saved these somewhere safe.</label>
-    <button class="btn primary" type="button" id="btn-codes-done" disabled>Continue</button>
-  </section>
-
-  <!-- Recovery -->
-  <section class="screen" data-screen="recover" hidden>
-    <h1>Use a recovery code.</h1>
-    <p class="lede">This sets up face sign-in on this device for your account. Each code works once.</p>
-    <form class="form" id="f-recover" novalidate>
-      <label class="field"><span>Username</span><input id="r-user" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="32"></label>
-      <label class="field"><span>Recovery code</span><input id="r-code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required maxlength="20" placeholder="XXXX-XXXX-XXXX"></label>
-      <label class="field"><span>Name this device</span><input id="r-device" required maxlength="40"></label>
-      <button class="btn primary" type="submit">Continue</button>
-    </form>
-    <p class="msg" id="recover-msg" role="alert" hidden></p>
-    <div class="links"><button class="link" type="button" data-go="home">Back</button></div>
-  </section>
-
-  <!-- Account -->
-  <section class="screen wide" data-screen="account" hidden>
-    <h1 id="hello">Hello.</h1>
-    <p class="lede" id="whoami"></p>
-
-    <div class="group">
-      <h2>Devices</h2>
-      <ul class="list" id="devices"></ul>
-    </div>
-
-    <div class="group">
-      <h2>Recovery codes</h2>
-      <div class="item"><span id="codes-left"></span><button class="btn small" type="button" id="btn-newcodes">Make new codes</button></div>
-    </div>
-
-    <div class="group">
-      <h2>Security log</h2>
-      <p class="chain" id="chain"></p>
-      <ul class="list log" id="log"></ul>
-    </div>
-
-    <div class="group">
-      <h2>This device</h2>
-      <div class="stack">
-        <button class="btn" type="button" id="btn-reenrol">Set up my face again</button>
-        <button class="btn" type="button" id="btn-forget">Remove face data from this device</button>
-        <button class="btn" type="button" id="btn-signout">Sign out</button>
-        <button class="btn danger" type="button" id="btn-delete">Delete account</button>
+<main id="top">
+  <!-- 00 · hero -->
+  <section class="hero" id="hero" data-stage="0" data-chapter="Mugam">
+    <div class="wrap hero-in">
+      <p class="label" data-intro>Authentication · Java · WebCrypto · on-device face model</p>
+      <h1 class="display hero-title" data-intro-split>Mu<em>gam</em></h1>
+      <p class="hero-tamil" data-intro><span class="tamil">முகம்</span> <span class="sep"></span> Tamil for <em>face</em></p>
+      <div class="hero-foot">
+        <p class="lede" data-intro>Sign in with your face. <strong>Your face never leaves your device.</strong> It only unlocks a key that never leaves it either, so the server sees a signature and nothing else.</p>
+        <div class="hero-sig card" data-intro aria-live="off">
+          <span class="label bare">Live · this browser's key</span>
+          <b class="mono" id="heroSig">signing…</b>
+          <span class="pill ok" id="heroOk">–</span>
+        </div>
+      </div>
+      <div class="hero-cta" data-intro>
+        <a class="btn acc" href="try.html">Try it with your camera <span class="arr">→</span></a>
+        <a class="btn ghost" href="#how">How it works</a>
       </div>
     </div>
-    <p class="msg" id="account-msg" role="alert" hidden></p>
+    <div class="wrap hero-meta" data-intro>
+      <span class="label bare">79 tests</span><span class="label bare">No passwords</span><span class="label bare">No face data uploaded</span><span class="label bare scroll-cue">Scroll</span>
+    </div>
+  </section>
+
+  <!-- 01 · the problem -->
+  <section id="problem" data-stage="1" data-chapter="The problem">
+    <div class="wrap grid">
+      <div class="col-l">
+        <p class="label" data-scramble>01 · The problem</p>
+      </div>
+      <div class="col-r stack">
+        <h2 class="h1" data-split>You can change a password. <em>Not your face.</em></h2>
+        <p class="body big" data-rise>Most face logins send a picture or a face template to a server and compare it there. That server becomes the most valuable thing to steal, and a leaked face can't be reset.</p>
+        <div class="trio" data-stagger>
+          <div class="card t"><span class="n">i.</span><h3 class="h3">Leaks are forever</h3><p>A stolen password is changed in a minute. A stolen face template is yours for life.</p></div>
+          <div class="card t"><span class="n">ii.</span><h3 class="h3">Photos fool cheap checks</h3><p>A printed photo or a phone screen held to a webcam passes a lazy face match.</p></div>
+          <div class="card t acc"><span class="n">iii.</span><h3 class="h3">Mugam keeps it home</h3><p>The face is checked on the device. The server only ever sees a signature from a key it can't export.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="marquee" aria-hidden="true"><div class="track" data-speed="44"><span>ECDSA P-256</span><span>Non-extractable keys</span><span>AES-GCM</span><span>PBKDF2 · 210,000</span><span>HMAC chain</span><span>68 landmarks</span><span>ISO/IEC 24745</span></div></div>
+
+  <!-- 02 · how (pinned horizontal) -->
+  <section id="how" class="how" data-stage="2" data-chapter="Four moves">
+    <div class="wrap how-head">
+      <p class="label" data-scramble>02 · How it works</p>
+      <h2 class="h1" data-split>Look, move, match, <em>sign.</em></h2>
+      <p class="body" data-rise>The last card is running for real: this page made a P-256 key in your browser that cannot be exported, and it signs a fresh challenge every few seconds.</p>
+    </div>
+    <div class="hscroll" id="hscroll">
+      <div class="cards" id="cards">
+        <article class="step card">
+          <header><span class="num">1</span><span class="label bare">Look</span></header>
+          <h3 class="h3">The camera frame stays in memory.</h3>
+          <div class="live"><div class="kv"><span>face found</span><b class="mono">tiny face detector</b></div><div class="kv"><span>points</span><b class="mono hl">68 landmarks</b></div><div class="kv"><span>template</span><b class="mono">128 numbers</b></div></div>
+          <p class="fine">A face model turns the frame into 128 numbers. The frame itself is dropped. Nothing is drawn to disk or sent anywhere.</p>
+        </article>
+        <article class="step card">
+          <header><span class="num">2</span><span class="label bare">Move</span></header>
+          <h3 class="h3">Two random moves prove you're there.</h3>
+          <div class="live"><div class="moves" id="moves"></div></div>
+          <p class="fine">Two of <em>turn left</em>, <em>turn right</em> and <em>blink</em>, in a random order, a few seconds each, one face only. A photo can't follow orders it hasn't seen.</p>
+        </article>
+        <article class="step card">
+          <header><span class="num">3</span><span class="label bare">Match</span></header>
+          <h3 class="h3">Compare with the template on this device.</h3>
+          <div class="live"><div class="kv"><span>distance</span><b class="mono" id="dist">0.31</b></div><div class="kv"><span>threshold</span><b class="mono hl">&lt; 0.50</b></div><div class="bar"><i id="distBar"></i></div></div>
+          <p class="fine">Every capture must match. The stored template is rotated by a secret and encrypted with a key the browser won't export.</p>
+        </article>
+        <article class="step card final">
+          <header><span class="num">4</span><span class="label bare">Sign</span></header>
+          <h3 class="h3">Unlock the key. Sign the challenge.</h3>
+          <div class="live">
+            <div class="kv"><span>challenge</span><b class="mono" id="chal">–</b></div>
+            <div class="kv"><span>signature</span><b class="mono" id="sig">–</b></div>
+            <div class="kv"><span>verified</span><b class="mono hl" id="ver">–</b></div>
+          </div>
+          <p class="fine">The challenge is used once, expires in two minutes and is bound to this site's address, so a look-alike site can't replay it.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 · liveness -->
+  <section id="liveness" data-stage="3" data-chapter="Liveness">
+    <div class="wrap grid">
+      <div class="col-l stack">
+        <p class="label" data-scramble>03 · Liveness</p>
+        <h2 class="h2" data-split>A photo can't <em>turn its head.</em></h2>
+        <p class="body" data-rise>Turning is measured from where the nose sits between the eyes. A blink is the <em>eye aspect ratio</em>, from Soukupová and Čech (2016): the eye's height over its width, which drops to almost nothing when the lid closes.</p>
+        <p class="body" data-rise>The face must stay one face, in one place. If a second face appears, or the face jumps across the frame the way a swapped photo does, the scan fails.</p>
+      </div>
+      <div class="col-r">
+        <div class="tool card formula" data-rise>
+          <span class="label bare">Eye aspect ratio</span>
+          <p class="eq mono">EAR = (|p2 − p6| + |p3 − p5|) / (2 · |p1 − p4|)</p>
+          <div class="ear">
+            <svg viewBox="0 0 220 90" aria-hidden="true"><ellipse id="eyeShape" cx="110" cy="45" rx="80" ry="26"/><circle cx="30" cy="45" r="4"/><circle cx="190" cy="45" r="4"/></svg>
+            <div class="kv"><span>EAR now</span><b class="mono hl" id="earVal">0.30</b></div>
+            <div class="kv"><span>counts as a blink below</span><b class="mono">0.21</b></div>
+          </div>
+          <p class="fine">End-to-end test: a still photo of the enrolled face, played through a fake camera, never signs in.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 · cancelable template -->
+  <section id="template" data-stage="4" data-chapter="Template">
+    <div class="wrap">
+      <div class="shares-head">
+        <p class="label" data-scramble>04 · A template you can cancel</p>
+        <h2 class="h1" data-split>Leak it. Cancel it. <em>Same face, new numbers.</em></h2>
+      </div>
+      <div class="grid shares-body">
+        <div class="col-l stack">
+          <p class="body" data-rise>Mugam never stores the 128 numbers as they come out of the model. It multiplies them by a secret random rotation first. A rotation keeps every distance the same, so matching still works, but the stored numbers look nothing like the original.</p>
+          <p class="body" data-rise>Set your face up again and you get a new rotation. The old template stops matching anything, which is the "renewability" goal of ISO/IEC 24745.</p>
+        </div>
+        <div class="col-r">
+          <div class="tool card" data-rise>
+            <div class="rot-row"><span class="label bare">Two captures of one face</span><button class="btn sm" id="reroll">New rotation</button></div>
+            <div class="vecs" id="vecs"></div>
+            <div class="kv"><span>distance before rotation</span><b class="mono" id="d0">–</b></div>
+            <div class="kv"><span>distance after rotation</span><b class="mono hl" id="d1">–</b></div>
+            <p class="fine">Eight numbers stand in for 128 here. The rotation is built the same way as in Mugam: a seeded random matrix made orthonormal with Gram–Schmidt.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05 · what the server keeps -->
+  <section id="server" class="ink-band" data-stage="5" data-chapter="The server">
+    <div class="wrap">
+      <div class="vault-head">
+        <p class="label" data-scramble>05 · What the server keeps</p>
+        <h2 class="h1" data-split>Nothing worth <em>stealing.</em></h2>
+      </div>
+      <div class="vault-grid" data-stagger>
+        <div class="v"><b class="mono">Public keys only</b><p>Each device's P-256 public key. A copy of the database signs nothing.</p></div>
+        <div class="v"><b class="mono">Recovery codes, hashed</b><p>Ten one-time codes, about 60 bits each, stored as PBKDF2 hashes with 210,000 rounds.</p></div>
+        <div class="v"><b class="mono">A keyed log</b><p>Every sign-in, failure and new device in an HMAC chain. An edited or cut-off log shows as broken.</p></div>
+        <div class="v"><b class="mono">No names in the log</b><p>Events are filed under a keyed pseudonym of the account, so a reused username never sees old history.</p></div>
+        <div class="v"><b class="mono">No lockout without a secret</b><p>Failed sign-ins are logged but never lock the owner out. Only wrong recovery codes count.</p></div>
+        <div class="v"><b class="mono">A 24-hour hold</b><p>A device added with a recovery code can't remove your other devices for a day. A stolen code can't take over at once.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06 · proof -->
+  <section id="proof" data-stage="6" data-chapter="Proof">
+    <div class="wrap grid">
+      <div class="col-l stack">
+        <p class="label" data-scramble>06 · Proof</p>
+        <div class="tally"><b data-count="79">79</b><span>tests, three suites</span></div>
+        <p class="body" data-rise>46 Java tests drive the protocol, the attacks and the HTTP layer. 13 Node tests check the maths. 20 run a real browser against the real server, with a fake camera showing a still photo.</p>
+      </div>
+      <div class="col-r">
+        <div class="vectors card" data-rise>
+          <table>
+            <thead><tr><th>Attack</th><th>What stops it</th><th>Suite</th></tr></thead>
+            <tbody>
+              <tr><td>Printed photo, phone screen</td><td>Two random moves, one face, no jumps</td><td class="p">browser</td></tr>
+              <tr><td>Replay a captured sign-in</td><td>One-use challenge, 2-minute expiry</td><td class="p">Java</td></tr>
+              <tr><td>Look-alike phishing site</td><td>Signature bound to this site's address</td><td class="p">Java</td></tr>
+              <tr><td>Steal the database</td><td>Public keys and slow hashes only</td><td class="p">Java</td></tr>
+              <tr><td>Steal the device template</td><td>Encrypted, rotated, cancelable</td><td class="p">Node</td></tr>
+              <tr><td>Invalid-curve public key</td><td>Point checked on P-256</td><td class="p">Java</td></tr>
+              <tr><td>Lock someone out</td><td>Only recovery codes count</td><td class="p">Java</td></tr>
+              <tr><td>Take over with a stolen code</td><td>24-hour hold on the new device</td><td class="p">Java</td></tr>
+              <tr><td>Cross-site request</td><td>Origin check, JSON only, SameSite cookie</td><td class="p">Java</td></tr>
+              <tr><td>Steal the session with a script</td><td>HttpOnly cookie, strict CSP</td><td class="p">browser</td></tr>
+              <tr><td>Edit the security log</td><td>Keyed chain, re-checked from disk</td><td class="p">Java</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 · limits -->
+  <section id="limits" data-stage="7" data-chapter="Limits">
+    <div class="wrap grid">
+      <div class="col-l stack">
+        <p class="label" data-scramble>07 · What it can't do</p>
+        <h2 class="h2" data-split>Honest about <em>the edges.</em></h2>
+      </div>
+      <div class="col-r">
+        <ol class="limits-list" data-stagger>
+          <li><div><b>A webcam sees no depth.</b> Face ID uses an infrared dot projector. A skilled deepfake or a good mask could pass liveness, which is why the face only unlocks a key on your own device.</div></li>
+          <li><div><b>Malware on the device wins.</b> Code inside a compromised browser could use the key without a face. Hardware passkeys are stronger; Mugam suits devices without built-in biometrics.</div></li>
+          <li><div><b>Face models aren't equally accurate for everyone.</b> The match threshold is stricter than the model's default, and recovery codes mean nobody is locked out by the model.</div></li>
+          <li><div><b>The Pages demo protects nothing.</b> Its "server" runs in your browser. Run the Java server for the real thing.</div></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 08 · run it -->
+  <section id="run" data-stage="8" data-chapter="Run it">
+    <div class="wrap grid">
+      <div class="col-l stack">
+        <p class="label" data-scramble>08 · Run it</p>
+        <h2 class="h2" data-split>Plain Java. <em>No dependencies.</em></h2>
+        <p class="body" data-rise>The server is the JDK's own HTTP server and crypto, nothing else. The face model runs in the browser. Needs JDK 21.</p>
+        <div class="limits card" data-rise>
+          <p class="label bare">Before a real deployment</p>
+          <p>Put it behind HTTPS, keep the pepper file away from the data folder, and tell it which proxy to trust. SECURITY.md has the full threat model.</p>
+        </div>
+      </div>
+      <div class="col-r">
+<pre class="term" data-rise><span class="dim">$</span> bash scripts/test.sh        <span class="dim"># 46 Java + 13 Node</span>
+<span class="dim">$</span> bash scripts/e2e.sh         <span class="dim"># 20 in a real browser</span>
+<span class="dim">$</span> bash scripts/serve.sh 8080
+Mugam on http://localhost:8080
+
+<span class="dim">$</span> java -cp server/out mugam.Server \
+    --origin https://login.example.in \
+    --pepper /etc/mugam/pepper \
+    --trusted-proxy 10.0.0.2</pre>
+      </div>
+    </div>
   </section>
 </main>
 
-<footer class="foot">
-  <span>Mugam · face sign-in where the face never leaves your device</span>
-  <a href="https://github.com/shyamvasansathiskumar-ux/mugam" rel="noopener">Source and security notes</a>
+<footer>
+  <div class="wrap">
+    <p class="big">Mu<em>gam</em>.</p>
+    <div class="row">
+      <div class="links">
+        <a class="btn acc" href="try.html">Try it with your camera <span class="arr">→</span></a>
+        <a class="btn ghost" href="https://github.com/shyamvasansathiskumar-ux/mugam" target="_blank" rel="noopener">Source on GitHub <span class="arr">↗</span></a>
+        <a class="btn ghost" href="https://shyamvasansathiskumar-ux.github.io/kaappu/">Kaappu, the 2FA you can't lose <span class="arr">→</span></a>
+      </div>
+      <small>Shyam Kumar · REC Chennai · 2026<br>MIT licence. Face model: face-api (MIT).</small>
+    </div>
+  </div>
 </footer>
 
-<dialog id="confirm">
-  <form method="dialog">
-    <h2 id="confirm-title"></h2>
-    <p id="confirm-text"></p>
-    <div class="row">
-      <button class="btn" value="no">Cancel</button>
-      <button class="btn danger" value="yes" id="confirm-yes">Delete</button>
-    </div>
-  </form>
-</dialog>
+<script src="gsap.min.js"></script>
+<script src="ScrollTrigger.min.js"></script>
+<script src="SplitText.min.js"></script>
+<script src="ScrambleTextPlugin.min.js"></script>
+<script src="lenis.min.js"></script>
+<script src="motion.js"></script>
+<script src="landing.js"></script>
+<script type="module" src="scene.js"></script>
 </body>
 </html>

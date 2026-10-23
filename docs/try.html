@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mugam</title>
+<meta name="description" content="Mugam (முகம், face): sign in with your face. Your face never leaves your device; it unlocks a key that only this device holds.">
+<meta name="color-scheme" content="light dark">
+<!-- The Java server sends a stricter CSP header; this copy protects the GitHub Pages demo. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'self'">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<header class="bar">
+  <a class="brand" href="./" aria-label="Mugam home"><span class="mark" aria-hidden="true"></span>Mugam <span class="ta" lang="ta">முகம்</span></a>
+  <span class="mode" id="mode" hidden></span>
+</header>
+
+<main id="app">
+  <!-- Sign in -->
+  <section class="screen" data-screen="home">
+    <h1>Sign in with your face.</h1>
+    <p class="lede">Your face never leaves this device. It unlocks a key that only this device holds.</p>
+    <form class="form" id="f-signin" novalidate>
+      <label class="field"><span>Username</span>
+        <input id="in-user" name="username" autocomplete="username webauthn" autocapitalize="none" spellcheck="false" required maxlength="32"></label>
+      <button class="btn primary" type="submit">Continue</button>
+    </form>
+    <p class="msg" id="home-msg" role="alert" hidden></p>
+    <div class="links">
+      <button class="link" type="button" data-go="create">Create an account</button>
+      <button class="link" type="button" data-go="recover">Use a recovery code</button>
+    </div>
+
+    <details class="how">
+      <summary>How Mugam keeps your face private</summary>
+      <ol>
+        <li><b>Your face stays here.</b> The camera picture is read in memory on this device and thrown away. Nothing is uploaded.</li>
+        <li><b>What is stored is not your face.</b> Mugam keeps a list of numbers, scrambled with a secret random rotation and encrypted with a key this browser won't let anyone export. Set up your face again and the old numbers become useless.</li>
+        <li><b>A live person, not a photo.</b> Each sign-in asks for two random movements, in an order nobody can predict.</li>
+        <li><b>The server only sees a signature.</b> Your face unlocks a private key on this device, which signs a one-time challenge. The server stores public keys only, so a stolen database signs nothing.</li>
+        <li><b>Every sign-in is on the record.</b> Your security log is a hash chain. Edit one line and the chain shows it.</li>
+      </ol>
+    </details>
+  </section>
+
+  <!-- Create account -->
+  <section class="screen" data-screen="create" hidden>
+    <h1>Create your account.</h1>
+    <p class="lede">No password. Your face, on this device.</p>
+    <form class="form" id="f-create" novalidate>
+      <label class="field"><span>Your name</span><input id="c-name" autocomplete="name" required maxlength="60"></label>
+      <label class="field"><span>Username</span><input id="c-user" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="32">
+        <small>3–32 characters: letters, numbers, dot, dash or underscore.</small></label>
+      <label class="field"><span>Name this device</span><input id="c-device" required maxlength="40"></label>
+      <button class="btn primary" type="submit">Continue</button>
+    </form>
+    <p class="msg" id="create-msg" role="alert" hidden></p>
+    <div class="links"><button class="link" type="button" data-go="home">I already have an account</button></div>
+  </section>
+
+  <!-- Notice and consent -->
+  <section class="screen" data-screen="notice" hidden>
+    <h1>Before we see your face.</h1>
+    <div class="notice">
+      <p><b>What Mugam uses:</b> your camera, only while the circle is on screen, to make a face template.</p>
+      <p><b>Where it goes:</b> nowhere. The template is encrypted and stays on this device. The server receives only a public key.</p>
+      <p><b>Why:</b> to sign you in. Nothing else, no ads, no sharing.</p>
+      <p><b>How to stop:</b> in your account, choose "Remove face data from this device" or "Delete account". Either one erases it.</p>
+      <p><b>No face?</b> Every account gets recovery codes, so you're never locked out.</p>
+    </div>
+    <label class="check"><input type="checkbox" id="consent"> I understand and agree to set up face sign-in.</label>
+    <button class="btn primary" id="btn-consent" type="button" disabled>Set up face sign-in</button>
+    <div class="links"><button class="link" type="button" data-go="home">Not now</button></div>
+  </section>
+
+  <!-- Camera -->
+  <section class="screen scan" data-screen="scan" hidden>
+    <h1 id="scan-title">Face sign-in</h1>
+    <div class="viewport">
+      <video id="video" playsinline muted aria-hidden="true"></video>
+      <svg class="ring" id="ring" viewBox="0 0 300 300" aria-hidden="true"></svg>
+      <div class="veil" id="veil"><span class="spinner"></span></div>
+    </div>
+    <p class="status" id="status" aria-live="polite">Getting ready…</p>
+    <p class="hint" id="hint">Hold your device at arm's length, in good light.</p>
+    <button class="btn quiet" type="button" id="btn-cancel">Cancel</button>
+    <canvas id="probe" hidden></canvas>
+  </section>
+
+  <!-- Recovery codes -->
+  <section class="screen" data-screen="codes" hidden>
+    <h1>Save your recovery codes.</h1>
+    <p class="lede">If you lose this device, each code lets you set up face sign-in on a new one, once. This is the only time they're shown.</p>
+    <ol class="codes" id="codes"></ol>
+    <div class="row">
+      <button class="btn" type="button" id="btn-copy">Copy</button>
+      <button class="btn" type="button" id="btn-download">Download</button>
+    </div>
+    <label class="check"><input type="checkbox" id="saved"> I've saved these somewhere safe.</label>
+    <button class="btn primary" type="button" id="btn-codes-done" disabled>Continue</button>
+  </section>
+
+  <!-- Recovery -->
+  <section class="screen" data-screen="recover" hidden>
+    <h1>Use a recovery code.</h1>
+    <p class="lede">This sets up face sign-in on this device for your account. Each code works once.</p>
+    <form class="form" id="f-recover" novalidate>
+      <label class="field"><span>Username</span><input id="r-user" autocomplete="username" autocapitalize="none" spellcheck="false" required maxlength="32"></label>
+      <label class="field"><span>Recovery code</span><input id="r-code" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" required maxlength="20" placeholder="XXXX-XXXX-XXXX"></label>
+      <label class="field"><span>Name this device</span><input id="r-device" required maxlength="40"></label>
+      <button class="btn primary" type="submit">Continue</button>
+    </form>
+    <p class="msg" id="recover-msg" role="alert" hidden></p>
+    <div class="links"><button class="link" type="button" data-go="home">Back</button></div>
+  </section>
+
+  <!-- Account -->
+  <section class="screen wide" data-screen="account" hidden>
+    <h1 id="hello">Hello.</h1>
+    <p class="lede" id="whoami"></p>
+
+    <div class="group">
+      <h2>Devices</h2>
+      <ul class="list" id="devices"></ul>
+    </div>
+
+    <div class="group">
+      <h2>Recovery codes</h2>
+      <div class="item"><span id="codes-left"></span><button class="btn small" type="button" id="btn-newcodes">Make new codes</button></div>
+    </div>
+
+    <div class="group">
+      <h2>Security log</h2>
+      <p class="chain" id="chain"></p>
+      <ul class="list log" id="log"></ul>
+    </div>
+
+    <div class="group">
+      <h2>This device</h2>
+      <div class="stack">
+        <button class="btn" type="button" id="btn-reenrol">Set up my face again</button>
+        <button class="btn" type="button" id="btn-forget">Remove face data from this device</button>
+        <button class="btn" type="button" id="btn-signout">Sign out</button>
+        <button class="btn danger" type="button" id="btn-delete">Delete account</button>
+      </div>
+    </div>
+    <p class="msg" id="account-msg" role="alert" hidden></p>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>Mugam · face sign-in where the face never leaves your device</span>
+  <a href="https://github.com/shyamvasansathiskumar-ux/mugam" rel="noopener">Source and security notes</a>
+</footer>
+
+<dialog id="confirm">
+  <form method="dialog">
+    <h2 id="confirm-title"></h2>
+    <p id="confirm-text"></p>
+    <div class="row">
+      <button class="btn" value="no">Cancel</button>
+      <button class="btn danger" value="yes" id="confirm-yes">Delete</button>
+    </div>
+  </form>
+</dialog>
+</body>
+</html>

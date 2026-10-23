@@ -26,7 +26,7 @@ async def main():
         pg.on("console", lambda m: (csp if "Content Security Policy" in m.text else errors).append(m.text) if m.type == "error" and "Failed to load resource" not in m.text else None)
         missing = []
         pg.on("response", lambda r: missing.append(r.url) if r.status == 404 else None)
-        await pg.goto(BASE + "/", wait_until="networkidle")
+        await pg.goto(BASE + "/try.html", wait_until="networkidle")
         await pg.wait_for_timeout(800)
         check(await pg.is_visible("text=Sign in with your face."), "home screen shows")
         check(not await pg.is_visible("#mode"), "talks to the real server (no demo badge)")
@@ -136,10 +136,26 @@ async def main():
 
         # Phone width
         m = await b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2)
-        mp = await m.new_page(); await mp.goto(BASE + "/", wait_until="networkidle")
+        mp = await m.new_page(); await mp.goto(BASE + "/try.html", wait_until="networkidle")
         over = await mp.evaluate("document.documentElement.scrollWidth - innerWidth")
         check(over == 0, "no sideways scroll on a phone", over)
         await mp.screenshot(path=f"{SHOTS}/mugam-phone.png")
+
+        # The landing page: runs under the server's CSP, its own key signs and verifies, nothing 404s.
+        lp = await ctx.new_page()
+        lerr, lmiss = [], []
+        lp.on("pageerror", lambda e: lerr.append(str(e)))
+        lp.on("console", lambda m: lerr.append(m.text) if m.type == "error" and "GL Driver" not in m.text else None)
+        lp.on("response", lambda r: lmiss.append(r.url) if r.status >= 400 else None)
+        await lp.goto(BASE + "/", wait_until="load")
+        ok = False
+        for _ in range(60):
+            if (await lp.text_content("#heroOk")).strip() == "verified": ok = True; break
+            await asyncio.sleep(1)
+        check(ok, "landing page: a non-extractable key in the page signs and verifies")
+        check(not lerr and not lmiss, "landing page: no errors, CSP violations or missing files", (lerr[:3], lmiss[:3]))
+        d0, d1 = await lp.text_content("#d0"), await lp.text_content("#d1")
+        check(d0 == d1 and d0 != "–", "landing page: the rotation keeps the distance", (d0, d1))
         await b.close()
     print(f"\n{passed} passed, {failed} failed")
     sys.exit(1 if failed else 0)
